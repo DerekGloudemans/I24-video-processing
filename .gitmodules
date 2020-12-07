@@ -1,0 +1,3 @@
+[submodule "I24-video-ingest"]
+	path = I24-video-ingest
+	url = https://github.com/DerekGloudemans/I24-video-ingest.git
