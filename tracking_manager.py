@@ -13,8 +13,8 @@ def get_recordings(ingest_session_path):
     
 def get_outputs(ingest_session_path):
     recording_names = []
-    for item in os.listdir(os.path.join(ingest_session_path,"recording")):
-        recording_names.append(item.split("_tracking_outputs")[0])
+    for item in os.listdir(os.path.join(ingest_session_path,"tracking_outputs")):
+        recording_names.append(item.split("_track_outputs")[0])
     return recording_names
 
 def get_in_progress(in_progress):
@@ -35,19 +35,16 @@ if __name__ == "__main__":
     # availability monitor
     available = np.ones(g)
     in_progress = {}
-    
-    
-    
-    
-            
             
     # create shared queue
     manager = mp.Manager()
     ctx = mp.get_context('spawn')
     com_queue = ctx.Queue()
     all_workers = {}
+    DONE = False
     
-    while True:
+    while not DONE:        
+        
         for idx in range(g):
             # initially, start gpu_count processes
             
@@ -55,7 +52,11 @@ if __name__ == "__main__":
                 in_prog = get_in_progress(in_progress)
                 recordings = get_recordings(ingest_session_path)
                 done = get_outputs(ingest_session_path)
-            
+               
+                if len(in_prog) == 0 and len(recordings) == len(done):
+                    DONE = True
+                    
+                
                 avail_recording = None
                 for item in recordings:
                     if item in in_prog or item in done:
@@ -84,13 +85,16 @@ if __name__ == "__main__":
                     
                     print("Started worker {} on video sequence {}".format(idx,in_progress[idx]))
         
+       
+
+        
         # monitor queue for messages that a worker completed its task
         try:
-           message = com_queue.get()            
+           message = com_queue.get(timeout = 0)            
         except queue.Empty:
             continue
         
-        worker_id = int(message.split(":")[1].split(" ")[0])
+        worker_id = int(message.split(" ")[0])
         
         all_workers[worker_id].terminate()
         all_workers[worker_id].join()
@@ -101,6 +105,10 @@ if __name__ == "__main__":
         del in_progress[worker_id]
         
         
+    print("Finished all video sequences")
+    for key in all_workers:
+        all_workers[key].terminate()
+        all_workers[key].join()
         
         
                 
