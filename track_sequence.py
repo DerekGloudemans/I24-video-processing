@@ -105,7 +105,8 @@ def track_sequence(input_file,
     # enable CUDA
     use_cuda = torch.cuda.is_available()
     device = torch.device(device_id if use_cuda else "cpu")    
-        
+    #device = device_id
+    
     det_step = configuration["det_step"]
     skip_step = configuration["skip_step"]
     
@@ -177,6 +178,7 @@ def track_sequence(input_file,
     tracker.track()
     tracker.write_results_csv()
      
+    com_queue.put("{} finished".format(device_id))
 
     
     
