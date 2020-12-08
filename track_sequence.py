@@ -11,10 +11,10 @@ from tracker import Localization_Tracker
 
 detector_path = os.path.join(os.getcwd(),"localization-based-tracking","models","pytorch_retinanet_detector")
 sys.path.insert(0,detector_path)
+from models.pytorch_retinanet_detector.retinanet.model import resnet50 
+
 localizer_path = os.path.join(os.getcwd(),"localization-based-tracking","models","pytorch_retinanet_localizer")
 sys.path.insert(0,localizer_path)
-
-from models.pytorch_retinanet_detector.retinanet.model import resnet50 
 from models.pytorch_retinanet_localizer.retinanet.model import resnet34
 
 
@@ -115,7 +115,7 @@ def track_sequence(input_file,
         kf_params = pickle.load(f)
         # these adjustments make the filter a bit less laggy
         kf_params["R"] /= 20
-        kf_params["R2"] /= 50 
+        kf_params["R2"] /= 500 
     
     # load class_dict
     with open(configuration["class_dict_path"] ,"rb") as f:
@@ -123,12 +123,13 @@ def track_sequence(input_file,
     
     # load detector
     det_cp = configuration["detector_parameters"]
-    detector = resnet50(configuration["num_classes"])
+    detector = resnet50(configuration["num_classes"]-4)
     detector.load_state_dict(torch.load(det_cp))
     detector = detector.to(device)
     detector.eval()
     detector.training = False  
-
+    detector.freeze_bn()
+    
     # load localizer
     loc_cp = configuration["localizer_parameters"]
     localizer = resnet34(configuration["num_classes"])
@@ -178,12 +179,13 @@ def track_sequence(input_file,
     tracker.track()
     tracker.write_results_csv()
      
-    com_queue.put("{} finished".format(device_id))
+    if com_queue is not None:
+        com_queue.put("{} finished".format(device_id))
 
     
     
 if __name__ == "__main__":
-    input_file = "/home/worklab/Data/cv/video/ingest_session_00011/recording/record_p1c0_00000.mp4"
+    input_file = "/home/worklab/Documents/derek/I24-video-processing//localization-based-tracking/demo/UA_Detrac_MVI_20011"
     config_file = "/home/worklab/Documents/derek/I24-video-processing/config/tracker_setup.config"
     output_directory = "/home/worklab/Data/cv/video/ingest_session_00011/tracking_outputs"
     log_file = None

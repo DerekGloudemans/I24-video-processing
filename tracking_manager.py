@@ -95,13 +95,15 @@ if __name__ == "__main__":
             continue
         
         worker_id = int(message.split(" ")[0])
-        
+        print("worker {} finished video sequence {}".format(worker_id, in_progress[worker_id]))
+
         all_workers[worker_id].terminate()
         all_workers[worker_id].join()
         del all_workers[worker_id]
+        print("worker {} process terminated".format(worker_id))
         
+        # update progress tracking 
         available[worker_id] = 1
-        print("worker {} finished video sequence {}".format(worker_id, in_progress[worker_id]))
         del in_progress[worker_id]
         
         
