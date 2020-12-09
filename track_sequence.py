@@ -72,7 +72,7 @@ def track_sequence(input_file,
                    log_file,
                    com_queue = None,
                    config = "DEFAULT",
-                   device_id = 0):
+                   worker_id = 0):
     """
     Tracks a video sequence according to the parameters specified in config_file
     
@@ -90,6 +90,8 @@ def track_sequence(input_file,
         Queue for communicating with manager process in a multiprocess scenario
     config : string, (optional)
         Specifies which camera configuration within config file should be used
+    worker_id int
+        Specifies worker ID assigned by manager process if any
     device : torch.device (optional)
         Specifies which GPU should be used
     """
@@ -98,8 +100,8 @@ def track_sequence(input_file,
     if com_queue is not None:
         start = time.time()
         key = "WORKER_START"
-        message = "Worker {} (PID {}) is executing".format(device_id,os.getpid())
-        com_queue.put((start,key,message,device_id))
+        message = "Worker {} (PID {}) is executing".format(worker_id,os.getpid())
+        com_queue.put((start,key,message,worker_id))
     
     # 1. parse config file
     configs = parse_config_file(config_file)
@@ -111,8 +113,7 @@ def track_sequence(input_file,
     
     # enable CUDA
     use_cuda = torch.cuda.is_available()
-    device = torch.device(device_id if use_cuda else "cpu")    
-    #device = device_id
+    device = torch.device(worker_id if use_cuda else "cpu")    
     
     det_step = configuration["det_step"]
     skip_step = configuration["skip_step"]
@@ -130,7 +131,7 @@ def track_sequence(input_file,
     
     # load detector
     det_cp = configuration["detector_parameters"]
-    detector = resnet50(configuration["num_classes"]-4)
+    detector = resnet50(configuration["num_classes"]-4,device_id = worker_id)
     detector.load_state_dict(torch.load(det_cp))
     detector = detector.to(device)
     detector.eval()
@@ -139,11 +140,18 @@ def track_sequence(input_file,
     
     # load localizer
     loc_cp = configuration["localizer_parameters"]
-    localizer = resnet34(configuration["num_classes"])
+    localizer = resnet34(configuration["num_classes"],device_id = worker_id)
     localizer.load_state_dict(torch.load(loc_cp))
     localizer = localizer.to(device)
     localizer.eval()
     localizer.training = False    
+    
+    d1 = localizer.regressionModel.conv1.weight.device
+    d2 = detector.regressionModel.conv1.weight.device
+    ts = time.time()
+    key = "INFO"
+    message = "Worker {} (PID {}): Localizer on device {}. Detector on device {}".format(worker_id,os.getpid(),d1,d2)
+    com_queue.put((ts,key,message,worker_id))
     
     # load other params
     init_frames= configuration["init_frames"]
@@ -168,6 +176,7 @@ def track_sequence(input_file,
                                    localizer,
                                    kf_params,
                                    class_dict,
+                                   device_id = worker_id,
                                    det_step = det_step,
                                    init_frames = init_frames,
                                    ber = ber,
@@ -190,8 +199,8 @@ def track_sequence(input_file,
        # write to queue that worker has finished
         end = time.time()
         key = "WORKER_END"
-        message = "Worker {} (PID {}) is done executing".format(device_id,os.getpid())
-        com_queue.put((end,key,message,device_id))
+        message = "Worker {} (PID {}) is done executing".format(worker_id,os.getpid())
+        com_queue.put((end,key,message,worker_id))
 
     
     

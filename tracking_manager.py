@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-import multiprocessing as mp
+import torch.multiprocessing as mp
 import os
 import queue
 import time
@@ -53,7 +53,8 @@ def write_to_log(log_file,message,show = True):
 
     line = "[{}] {}: {} \n".format(formatted_time,message[1],message[2])   
     if show:
-        print(line[:-2])
+        if message[1] not in ["SYS"]:
+            print(line[:-2])
     with open (log_file,"a+") as f:
         f.writelines([line])
         
@@ -74,7 +75,8 @@ def log_system(log_file):
         deviceCount = pynvml.nvmlDeviceGetCount()
         for idx in range(deviceCount):
             handle = pynvml.nvmlDeviceGetHandleByIndex(idx)
-            name = "GPU {}: {}".format(idx,pynvml.nvmlDeviceGetName(handle).decode("utf-8"))
+            board_num = pynvml.nvmlDeviceGetBoardId(handle)
+            name = "GPU {}: {}  (ID {})".format(idx,pynvml.nvmlDeviceGetName(handle).decode("utf-8"),board_num)
             util = pynvml.nvmlDeviceGetUtilizationRates(handle)
             fan_util = pynvml.nvmlDeviceGetFanSpeed(handle)
             gpu_util = util.gpu
@@ -103,7 +105,7 @@ def log_system(log_file):
 
 if __name__ == "__main__":
     
-    log_rate = 15
+    log_rate = 5
     last_log_time = 0
     ingest_session_path = "/home/worklab/Data/cv/video/ingest_session_00011"
     log_file = os.path.join(ingest_session_path,"logs","cv_tracking_manager.log")
@@ -113,7 +115,6 @@ if __name__ == "__main__":
 
     # get GPU list
     g = torch.cuda.device_count()
-    device_list = [torch.cuda.device("cuda:{}".format(idx)) for idx in range(g)]    
 
     # availability monitor
     available = np.ones(g)
@@ -158,7 +159,7 @@ if __name__ == "__main__":
                     output_directory = os.path.join(ingest_session_path,"tracking_outputs")
                     config_file = "/home/worklab/Documents/derek/I24-video-processing/config/tracker_setup.config"
                     args = [input_file, output_directory, config_file,log_file]
-                    kwargs = {"device_id":idx, "com_queue":com_queue}
+                    kwargs = {"worker_id":idx, "com_queue":com_queue}
                     
                     worker = ctx.Process(target=track_sequence,args = args, kwargs=kwargs)
                     all_workers[idx] = (worker)
@@ -200,7 +201,7 @@ if __name__ == "__main__":
             # write log message
             ts = time.time()
             key  = "WORKER_TERM"
-            text = "Manager terminated worker {} (PID {}) on video sequence {}".format(worker_id,worker_pid,in_progress[idx])
+            text = "Manager terminated worker {} (PID {}) on video sequence {}".format(worker_id,worker_pid,in_progress[worker_id])
             write_to_log(log_file,(ts,key,text))
             
         
