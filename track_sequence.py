@@ -1,4 +1,5 @@
 import torch
+import time
 import sys,os
 import _pickle as pickle
 # tracker
@@ -71,7 +72,7 @@ def track_sequence(input_file,
                    log_file,
                    com_queue = None,
                    config = "DEFAULT",
-                   device_id = "cuda:0"):
+                   device_id = 0):
     """
     Tracks a video sequence according to the parameters specified in config_file
     
@@ -93,6 +94,12 @@ def track_sequence(input_file,
         Specifies which GPU should be used
     """
     
+    # write to queue that worker has started
+    if com_queue is not None:
+        start = time.time()
+        key = "WORKER_START"
+        message = "Worker {} (PID {}) is executing".format(device_id,os.getpid())
+        com_queue.put((start,key,message,device_id))
     
     # 1. parse config file
     configs = parse_config_file(config_file)
@@ -180,7 +187,11 @@ def track_sequence(input_file,
     tracker.write_results_csv()
      
     if com_queue is not None:
-        com_queue.put("{} finished".format(device_id))
+       # write to queue that worker has finished
+        end = time.time()
+        key = "WORKER_END"
+        message = "Worker {} (PID {}) is done executing".format(device_id,os.getpid())
+        com_queue.put((end,key,message,device_id))
 
     
     
