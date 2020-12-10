@@ -31,7 +31,7 @@ def get_in_progress(in_progress):
         in_progress_names.append(in_progress[key])
     return in_progress_names    
 
-def write_to_log(log_file,message,show = True):
+def write_to_log(log_file,message,show = False):
     """
     All messages passed to this file should be of the form (timestamp, key, message)
         valid Keys - START_PROC_SESSION - start of a processing session
@@ -66,8 +66,10 @@ def log_system(log_file):
     cpu_util = psutil.cpu_percent()
     cpu_util_ind = psutil.cpu_percent(percpu = True)
     ts = time.time()
-    key = "SYS"
-    message = "CPU util: {}% -- Individual utils: {}".format(cpu_util,cpu_util_ind)
+    key = "INFO"
+    message = "CPU util: {}% -- Individual utils 1-24: {}".format(cpu_util,cpu_util_ind[:24])
+    write_to_log(log_file,(ts,key,message))
+    message = "CPU util: {}% -- Individual utils 25-48: {}".format(cpu_util,cpu_util_ind[24:])
     write_to_log(log_file,(ts,key,message))
     
     # log GPU util and memory
@@ -84,7 +86,7 @@ def log_system(log_file):
             
             message = "{}: Kernel:{}%  Mem:{}% Fan:{}%".format(name,gpu_util,mem_util,fan_util)
             ts = time.time()
-            key = "SYS"
+            key = "INFO"
             write_to_log(log_file,(ts,key,message))
             
     except pynvml.NVMLError as error:
@@ -95,7 +97,7 @@ def log_system(log_file):
     used = round(mem_util.used / 1e+9,2)
     total = round(mem_util.total / 1e+9,2)
     ts = time.time()
-    key = "SYS"
+    key = "INFO"
     message = "Memory util: {}%  ({}/{}GB)".format(round(used/total*100,2),used,total)
     write_to_log(log_file,(ts,key,message))
     
@@ -108,9 +110,19 @@ if __name__ == "__main__":
     log_rate = 5
     last_log_time = 0
     ingest_session_path = "/home/worklab/Data/cv/video/ingest_session_00011"
-    log_file = os.path.join(ingest_session_path,"logs","cv_tracking_manager.log")
-
-    write_to_log(log_file,(time.time(),"START_PROC_SESSION","Started processing session."))
+    ingest_session_path = "/home/worklab/Data/cv/video/5_min_18_cam_October_2020/ingest_session_00005"
+    
+    # define unique log file for processing session
+    log_idx = 0
+    while True:
+        log_file = os.path.join(ingest_session_path,"logs","cv_tracking_manager_{}.log".format(str(log_idx).zfill(3)))
+        if os.path.exists(log_file):
+            log_idx += 1
+        else:
+            break
+        
+        
+    write_to_log(log_file,(time.time(),"INFO","STARTED PROCESSING SESSION."))
 
 
     # get GPU list
@@ -159,7 +171,7 @@ if __name__ == "__main__":
                     output_directory = os.path.join(ingest_session_path,"tracking_outputs")
                     config_file = "/home/worklab/Documents/derek/I24-video-processing/config/tracker_setup.config"
                     args = [input_file, output_directory, config_file,log_file]
-                    kwargs = {"worker_id":idx, "com_queue":com_queue}
+                    kwargs = {"worker_id":idx, "com_queue":com_queue,"com_rate": log_rate}
                     
                     worker = ctx.Process(target=track_sequence,args = args, kwargs=kwargs)
                     all_workers[idx] = (worker)
@@ -167,7 +179,7 @@ if __name__ == "__main__":
                     
                     # write log message
                     ts = time.time()
-                    key  = "WORKER_START"
+                    key  = "DEBUG"
                     text = "Manager started worker {} (PID {}) on video sequence {}".format(idx,all_workers[idx].pid,in_progress[idx])
                     write_to_log(log_file,(ts,key,text))
                     
@@ -200,7 +212,7 @@ if __name__ == "__main__":
             
             # write log message
             ts = time.time()
-            key  = "WORKER_TERM"
+            key  = "DEBUG"
             text = "Manager terminated worker {} (PID {}) on video sequence {}".format(worker_id,worker_pid,in_progress[worker_id])
             write_to_log(log_file,(ts,key,text))
             
@@ -221,8 +233,8 @@ if __name__ == "__main__":
         
     # end log message
     ts = time.time()
-    key = "END_PROC_SESSION"
-    message = "Ended processing session."
+    key = "INFO"
+    message = "ENDED PROCESSING SESSION."
     write_to_log(log_file,(ts,key,message))
         
                 

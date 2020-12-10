@@ -72,7 +72,8 @@ def track_sequence(input_file,
                    log_file,
                    com_queue = None,
                    config = "DEFAULT",
-                   worker_id = 0):
+                   worker_id = 0,
+                   com_rate = 15):
     """
     Tracks a video sequence according to the parameters specified in config_file
     
@@ -99,7 +100,7 @@ def track_sequence(input_file,
     # write to queue that worker has started
     if com_queue is not None:
         start = time.time()
-        key = "WORKER_START"
+        key = "DEBUG"
         message = "Worker {} (PID {}) is executing".format(worker_id,os.getpid())
         com_queue.put((start,key,message,worker_id))
     
@@ -149,7 +150,7 @@ def track_sequence(input_file,
     d1 = localizer.regressionModel.conv1.weight.device
     d2 = detector.regressionModel.conv1.weight.device
     ts = time.time()
-    key = "INFO"
+    key = "DEBUG"
     message = "Worker {} (PID {}): Localizer on device {}. Detector on device {}".format(worker_id,os.getpid(),d1,d2)
     com_queue.put((ts,key,message,worker_id))
     
@@ -189,7 +190,9 @@ def track_sequence(input_file,
                                    skip_step = skip_step,
                                    checksum_path = checksum_path,
                                    geom_path = geom_path,
-                                   output_dir = output_directory)
+                                   output_dir = output_directory,
+                                   com_queue = com_queue,
+                                   com_rate = com_rate)
     
     #3. track and write output
     tracker.track()
