@@ -132,7 +132,7 @@ def track_sequence(input_file,
     
     # load detector
     det_cp = configuration["detector_parameters"]
-    detector = resnet50(configuration["num_classes"]-4,device_id = worker_id)
+    detector = resnet50(configuration["num_classes"],device_id = worker_id)
     detector.load_state_dict(torch.load(det_cp))
     detector = detector.to(device)
     detector.eval()
@@ -140,19 +140,23 @@ def track_sequence(input_file,
     detector.freeze_bn()
     
     # load localizer
-    loc_cp = configuration["localizer_parameters"]
-    localizer = resnet34(configuration["num_classes"],device_id = worker_id)
-    localizer.load_state_dict(torch.load(loc_cp))
-    localizer = localizer.to(device)
-    localizer.eval()
-    localizer.training = False    
+    if configuration["localize"]:
+        loc_cp = configuration["localizer_parameters"]
+        localizer = resnet34(configuration["num_classes"],device_id = worker_id)
+        localizer.load_state_dict(torch.load(loc_cp))
+        localizer = localizer.to(device)
+        localizer.eval()
+        localizer.training = False   
+    else:
+        localizer = None
     
-    d1 = localizer.regressionModel.conv1.weight.device
-    d2 = detector.regressionModel.conv1.weight.device
-    ts = time.time()
-    key = "DEBUG"
-    message = "Worker {} (PID {}): Localizer on device {}. Detector on device {}".format(worker_id,os.getpid(),d1,d2)
-    com_queue.put((ts,key,message,worker_id))
+    if com_queue is not None:
+        d1 = localizer.regressionModel.conv1.weight.device
+        d2 = detector.regressionModel.conv1.weight.device
+        ts = time.time()
+        key = "DEBUG"
+        message = "Worker {} (PID {}): Localizer on device {}. Detector on device {}".format(worker_id,os.getpid(),d1,d2)
+        com_queue.put((ts,key,message,worker_id))
     
     # load other params
     init_frames= configuration["init_frames"]
@@ -208,7 +212,7 @@ def track_sequence(input_file,
     
     
 if __name__ == "__main__":
-    input_file = "/home/worklab/Documents/derek/I24-video-processing//localization-based-tracking/demo/UA_Detrac_MVI_20011"
+    input_file = "/home/worklab/Documents/derek/I24-video-processing//localization-based-tracking/demo/record_p1c0_00000.mp4"
     config_file = "/home/worklab/Documents/derek/I24-video-processing/config/tracker_setup.config"
     output_directory = "/home/worklab/Data/cv/video/ingest_session_00011/tracking_outputs"
     log_file = None
