@@ -10,6 +10,8 @@ import numpy as np
 
 from track_sequence import track_sequence
 
+import argparse
+
 pynvml.nvmlInit()
 
 
@@ -109,10 +111,19 @@ def log_system(log_file):
 
 if __name__ == "__main__":
     
+    #add argparse block here so we can optionally run from command line
+    try:
+        parser = argparse.ArgumentParser()
+        parser.add_argument("Ingest_session_directory", help= '<Required> string, path to ingest session main directory',type = str)
+        args = parser.parse_args()
+        ingest_session_path = args["Ingest_session_directory"]
+    except:
+        ingest_session_path = "/home/worklab/Data/cv/video/ingest_session_00011"
+        ingest_session_path = "/home/worklab/Data/cv/video/5_min_18_cam_October_2020/ingest_session_00005"
+    
     log_rate = 5
     last_log_time = 0
-    ingest_session_path = "/home/worklab/Data/cv/video/ingest_session_00011"
-    ingest_session_path = "/home/worklab/Data/cv/video/5_min_18_cam_October_2020/ingest_session_00005"
+    
     
     # create directory for outputs if needed
     if not os.path.exists(os.path.join(ingest_session_path,"tracking_outputs")):
