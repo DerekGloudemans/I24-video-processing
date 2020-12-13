@@ -81,10 +81,12 @@ def log_system(log_file):
             name = "GPU {}: {}  (ID {})".format(idx,pynvml.nvmlDeviceGetName(handle).decode("utf-8"),board_num)
             util = pynvml.nvmlDeviceGetUtilizationRates(handle)
             fan_util = pynvml.nvmlDeviceGetFanSpeed(handle)
+            pcie_counter = pynvml.nvmlDeviceGetPcieReplayCounter(handle)
+            pcie_util = pynvml.nvmlDeviceGetPcieThroughput(handle,pcie_counter)
             gpu_util = util.gpu
             mem_util = util.memory
             
-            message = "{}: Kernel:{}%  Mem:{}% Fan:{}%".format(name,gpu_util,mem_util,fan_util)
+            message = "{}: Kernel:{}%  Mem:{}% Fan:{}% PCIe: {}MB/s".format(name,gpu_util,mem_util,fan_util,round(pcie_util/1000,1))
             ts = time.time()
             key = "INFO"
             write_to_log(log_file,(ts,key,message))
@@ -112,10 +114,15 @@ if __name__ == "__main__":
     ingest_session_path = "/home/worklab/Data/cv/video/ingest_session_00011"
     ingest_session_path = "/home/worklab/Data/cv/video/5_min_18_cam_October_2020/ingest_session_00005"
     
+    # create directory for outputs if needed
+    if not os.path.exists(os.path.join(ingest_session_path,"tracking_outputs")):
+        os.mkdir(os.path.join(ingest_session_path,"tracking_outputs"))
+    
     # define unique log file for processing session
+    log_subidx = 0
     log_idx = 0
     while True:
-        log_file = os.path.join(ingest_session_path,"logs","cv_tracking_manager_{}.log".format(str(log_idx).zfill(3)))
+        log_file = os.path.join(ingest_session_path,"logs","cv_tracking_manager_{}_{}.log".format(str(log_idx).zfill(3),log_subidx))
         if os.path.exists(log_file):
             log_idx += 1
         else:
@@ -222,8 +229,12 @@ if __name__ == "__main__":
             del in_progress[worker_id]
         
         
-            
+        if os.stat(log_file).st_size > 1e+07: # slice into 10 MB log files
+            log_subidx += 1
+            log_file = os.path.join(ingest_session_path,"logs","cv_tracking_manager_{}_{}.log".format(str(log_idx).zfill(3),log_subidx))
+
         
+            
         
         
     print("Finished all video sequences")
