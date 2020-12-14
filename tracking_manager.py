@@ -192,7 +192,7 @@ if __name__ == "__main__":
                     camera_id = input_file.split("/")[-1].split("_")[1].upper()
                     
                     args = [input_file, output_directory, config_file,log_file]
-                    kwargs = {"worker_id":idx, "com_queue":com_queue,"com_rate": log_rate,"config":"DEFAULT"}
+                    kwargs = {"worker_id":idx, "com_queue":com_queue,"com_rate": log_rate,"config":camera_id}
                     
                     worker = ctx.Process(target=track_sequence,args = args, kwargs=kwargs)
                     all_workers[idx] = (worker)
