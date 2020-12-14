@@ -118,8 +118,9 @@ if __name__ == "__main__":
         args = parser.parse_args()
         ingest_session_path = args["Ingest_session_directory"]
     except:
+        print("Using default path instead")
         ingest_session_path = "/home/worklab/Data/cv/video/ingest_session_00011"
-        ingest_session_path = "/home/worklab/Data/cv/video/5_min_18_cam_October_2020/ingest_session_00005"
+        #ingest_session_path = "/home/worklab/Data/cv/video/5_min_18_cam_October_2020/ingest_session_00005"
     
     log_rate = 5
     last_log_time = 0
