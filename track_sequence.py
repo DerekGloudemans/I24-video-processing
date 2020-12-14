@@ -104,11 +104,23 @@ def track_sequence(input_file,
         message = "Worker {} (PID {}) is executing".format(worker_id,os.getpid())
         com_queue.put((start,key,message,worker_id))
     
-    # 1. parse config file
+    # 1. parse config file -use default if named config is not available
     configs = parse_config_file(config_file)
     for configuration in configs:
         if configuration["name"] == config:
             break
+        elif configuration["name"] == "DEFAULT":
+            default_configuration = configuration
+        else:
+            configuration = None
+    if configuration is None:
+        configuration = default_configuration
+    
+    if com_queue is not None:
+        start = time.time()
+        key = "INFO"
+        message = "Worker {} (PID {}) using configuration {}".format(worker_id,os.getpid(),configuration["name"])
+        com_queue.put((start,key,message,worker_id))
     
     # 2. initialize tracker with parsed parameters
     
@@ -169,7 +181,7 @@ def track_sequence(input_file,
     output_video_path = configuration["output_video_path"]
     checksum_path = configuration["checksum_path"]
     geom_path = configuration["geom_path"]
-
+    transform_path = configuration["transform_path"]
     # make a new output directory if not yet initialized
     try:
         os.mkdir(output_directory)
@@ -195,6 +207,7 @@ def track_sequence(input_file,
                                    checksum_path = checksum_path,
                                    geom_path = geom_path,
                                    output_dir = output_directory,
+                                   transform_path = transform_path,
                                    com_queue = com_queue,
                                    com_rate = com_rate)
     
@@ -212,7 +225,7 @@ def track_sequence(input_file,
     
     
 if __name__ == "__main__":
-    input_file = "/home/worklab/Documents/derek/I24-video-processing//localization-based-tracking/demo/record_p1c0_00000.mp4"
+    input_file = "/home/worklab/Documents/derek/I24-video-processing//localization-based-tracking/demo/record_p2c0_00000.mp4"
     config_file = "/home/worklab/Documents/derek/I24-video-processing/config/tracker_setup.config"
     output_directory = "/home/worklab/Data/cv/video/ingest_session_00011/tracking_outputs"
     log_file = None
