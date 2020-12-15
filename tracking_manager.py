@@ -17,9 +17,23 @@ pynvml.nvmlInit()
 
 def get_recordings(ingest_session_path):
     recording_names = []
-    for item in os.listdir(os.path.join(ingest_session_path,"recording")):
+    last_recording_num = {}
+    for item in os.listdir(os.path.join(ingest_session_path,"recording")):        
         recording_names.append(item.split(".mp4")[0])
-    return recording_names
+        
+    # remove all recordings that are currently being written to
+    keepers = []
+    for item in recording_names:
+        for other_item in recording_names:
+            camera1 = item.split("_")[1]
+            camera2 = other_item.split("_")[1]
+            if camera1 == camera2:
+                num1 = int(item.split("_")[2].split(".mp4")[0])
+                num2 = int(other_item.split("_")[2].split(".mp4")[0])
+                if num1 < num2:
+                    keepers.append(item) # there exists a recording with greater number than item for that camera
+        
+    return keepers
     
 def get_outputs(ingest_session_path):
     recording_names = []
@@ -120,7 +134,7 @@ if __name__ == "__main__":
     except:
         print("Using default path instead")
         ingest_session_path = "/home/worklab/Data/cv/video/ingest_session_00011"
-        #ingest_session_path = "/home/worklab/Data/cv/video/5_min_18_cam_October_2020/ingest_session_00005"
+        ingest_session_path = "/home/worklab/Data/cv/video/5_min_18_cam_October_2020/ingest_session_00005"
     
     log_rate = 5
     last_log_time = 0
