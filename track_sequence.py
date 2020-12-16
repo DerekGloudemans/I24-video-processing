@@ -162,7 +162,7 @@ def track_sequence(input_file,
     else:
         localizer = None
     
-    if com_queue is not None:
+    if com_queue is not None and localizer is not None:
         d1 = localizer.regressionModel.conv1.weight.device
         d2 = detector.regressionModel.conv1.weight.device
         ts = time.time()

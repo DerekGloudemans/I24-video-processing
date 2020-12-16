@@ -128,10 +128,12 @@ if __name__ == "__main__":
     #add argparse block here so we can optionally run from command line
     try:
         parser = argparse.ArgumentParser()
-        parser.add_argument("Ingest_session_directory", help= '<Required> string, path to ingest session main directory',type = str)
+        parser.add_argument("Ingest_session_directory", help= '<Required> string, Path to ingest session main directory',type = str)
         args = parser.parse_args()
-        ingest_session_path = args["Ingest_session_directory"]
-    except:
+        ingest_session_path = args.Ingest_session_directory
+    except Exception as e:
+        print(e)
+        
         print("Using default path instead")
         ingest_session_path = "/home/worklab/Data/cv/video/ingest_session_00011"
         ingest_session_path = "/home/worklab/Data/cv/video/5_min_18_cam_October_2020/ingest_session_00005"
@@ -171,104 +173,125 @@ if __name__ == "__main__":
     com_queue = ctx.Queue()
     all_workers = {}
     DONE = False
-    
+        
     while not DONE:        
         
-        for idx in range(g):
-            # initially, start gpu_count processes
-            
-            if available[idx] == 1:
-                in_prog = get_in_progress(in_progress)
-                recordings = get_recordings(ingest_session_path)
-                done = get_outputs(ingest_session_path)
-               
-                if len(in_prog) == 0 and len(recordings) == len(done):
-                    DONE = True
-                    
-                
-                avail_recording = None
-                for item in recordings:
-                    if item in in_prog or item in done:
-                        continue
-                    else:
-                        avail_recording = item
-                        break
-                
-                if avail_recording is not None:
-                    # assign this recording to this worker
-                    
-                    in_progress[idx] = avail_recording
-                    available[idx] = 0
-                    
-                    input_file = os.path.join(ingest_session_path,"recording",avail_recording+".mp4")
-                    output_directory = os.path.join(ingest_session_path,"tracking_outputs")
-                    config_file = "/home/worklab/Documents/derek/I24-video-processing/config/tracker_setup.config"
-                    camera_id = input_file.split("/")[-1].split("_")[1].upper()
-                    
-                    args = [input_file, output_directory, config_file,log_file]
-                    kwargs = {"worker_id":idx, "com_queue":com_queue,"com_rate": log_rate,"config":camera_id}
-                    
-                    worker = ctx.Process(target=track_sequence,args = args, kwargs=kwargs)
-                    all_workers[idx] = (worker)
-                    all_workers[idx].start()
-                    
-                    # write log message
-                    ts = time.time()
-                    key  = "DEBUG"
-                    text = "Manager started worker {} (PID {}) on video sequence {}".format(idx,all_workers[idx].pid,in_progress[idx])
-                    write_to_log(log_file,(ts,key,text))
-                    
-        
-       
-        # periodically, write device status to log file
-        if time.time() - last_log_time > log_rate:
-            last_log_time = log_system(log_file)
-        
-        
-        # monitor queue for messages that a worker completed its task
         try:
-           message = com_queue.get(timeout = 0)            
-        except queue.Empty:
-            continue
-        
-        # write message to log file
-        worker_id = message[3]
-        message = message[:3]
-        write_to_log(log_file,message)
-        
-        # if message is a finished task, update manager
-        key = message[1]
-        if key == "WORKER_END":
-            worker_pid = all_workers[worker_id].pid
+            for idx in range(g):
+                # initially, start gpu_count processes
+                
+                if available[idx] == 1:
+                    in_prog = get_in_progress(in_progress)
+                    recordings = get_recordings(ingest_session_path)
+                    done = get_outputs(ingest_session_path)
+                   
+                    if len(in_prog) == 0 and len(recordings) == len(done):
+                        DONE = True
+                        
+                    
+                    avail_recording = None
+                    for item in recordings:
+                        if item in in_prog or item in done:
+                            continue
+                        else:
+                            avail_recording = item
+                            break
+                    
+                    if avail_recording is not None:
+                        # assign this recording to this worker
+                        
+                        in_progress[idx] = avail_recording
+                        available[idx] = 0
+                        
+                        input_file = os.path.join(ingest_session_path,"recording",avail_recording+".mp4")
+                        # change to use Will's utilities
+                        
+                        output_directory = os.path.join(ingest_session_path,"tracking_outputs")
+                        config_file = "/home/worklab/Documents/derek/I24-video-processing/config/tracker_setup.config"
+                        camera_id = input_file.split("/")[-1].split("_")[1].upper()
+                        
+                        args = [input_file, output_directory, config_file,log_file]
+                        kwargs = {"worker_id":idx, "com_queue":com_queue,"com_rate": log_rate,"config":camera_id}
+                        
+                        worker = ctx.Process(target=track_sequence,args = args, kwargs=kwargs)
+                        all_workers[idx] = (worker)
+                        all_workers[idx].start()
+                        
+                        # write log message
+                        ts = time.time()
+                        key  = "DEBUG"
+                        text = "Manager started worker {} (PID {}) on video sequence {}".format(idx,all_workers[idx].pid,in_progress[idx])
+                        write_to_log(log_file,(ts,key,text))
+                        
             
-            all_workers[worker_id].terminate()
-            all_workers[worker_id].join()
-            del all_workers[worker_id]
+           
+            # periodically, write device status to log file
+            if time.time() - last_log_time > log_rate:
+                last_log_time = log_system(log_file)
             
-            # write log message
-            ts = time.time()
-            key  = "DEBUG"
-            text = "Manager terminated worker {} (PID {}) on video sequence {}".format(worker_id,worker_pid,in_progress[worker_id])
-            write_to_log(log_file,(ts,key,text))
             
-        
-            # update progress tracking 
-            available[worker_id] = 1
-            del in_progress[worker_id]
-        
-        
-        if os.stat(log_file).st_size > 1e+07: # slice into 10 MB log files
-            log_subidx += 1
-            log_file = os.path.join(ingest_session_path,"logs","cv_tracking_manager_{}_{}.log".format(str(log_idx).zfill(3),log_subidx))
+            # monitor queue for messages that a worker completed its task
+            try:
+               message = com_queue.get(timeout = 0)            
+            except queue.Empty:
+                continue
+            
+            # write message to log file
+            worker_id = message[3]
+            message = message[:3]
+            write_to_log(log_file,message)
+            
+            # if message is a finished task, update manager
+            key = message[1]
+            if key == "WORKER_END":
+                worker_pid = all_workers[worker_id].pid
+                
+                all_workers[worker_id].terminate()
+                all_workers[worker_id].join()
+                del all_workers[worker_id]
+                
+                # write log message
+                ts = time.time()
+                key  = "DEBUG"
+                text = "Manager terminated worker {} (PID {}) on video sequence {}".format(worker_id,worker_pid,in_progress[worker_id])
+                write_to_log(log_file,(ts,key,text))
+                
+            
+                # update progress tracking 
+                available[worker_id] = 1
+                del in_progress[worker_id]
+            
+            
+            if os.stat(log_file).st_size > 1e+07: # slice into 10 MB log files
+                log_subidx += 1
+                log_file = os.path.join(ingest_session_path,"logs","cv_tracking_manager_{}_{}.log".format(str(log_idx).zfill(3),log_subidx))
 
-        
+        except KeyboardInterrupt:
+            # interrupt log message
+            ts = time.time()
+            key = "WARNING"
+            message = "Keyboard Interrupt error caught. Shutting down worker processes now."
+            write_to_log(log_file,(ts,key,message))
             
-        
-        
-    print("Finished all video sequences")
-    for key in all_workers:
-        all_workers[key].terminate()
-        all_workers[key].join()
+            # terminate all worker processes (they will in turn terminate their daemon loaders)
+            for worker in all_workers:
+                all_workers[worker].terminate()
+                all_workers[worker].join()
+            
+            # interrupt log message
+            ts = time.time()
+            key = "DEBUG"
+            message = "All worker processes have been terminated."
+            write_to_log(log_file,(ts,key,message))
+                        
+            break # get out of processing main loop
+
+    
+    if DONE:    
+        print("Finished all video sequences")
+        for key in all_workers:
+            all_workers[key].terminate()
+            all_workers[key].join()
         
     # end log message
     ts = time.time()
