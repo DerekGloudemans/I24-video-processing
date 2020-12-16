@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import torch.multiprocessing as mp
-import os
+import os,sys
 import queue
 import time
 import psutil
@@ -14,24 +14,31 @@ import argparse
 
 pynvml.nvmlInit()
 
+sys.path.append("I24-video-ingest")
+from utilities import get_recording_params, find_files
 
 def get_recordings(ingest_session_path):
-    recording_names = []
-    last_recording_num = {}
-    for item in os.listdir(os.path.join(ingest_session_path,"recording")):        
-        recording_names.append(item.split(".mp4")[0])
+    
+    params = get_recording_params(ingest_session_path,verbose = False)
+    file_list = find_files(params[0],params[1],params[2],drop_last_file = True,verbose = False)
+    
+    keepers = [item[1] for item in file_list]
+    # recording_names = []
+    # last_recording_num = {}
+    # for item in os.listdir(os.path.join(ingest_session_path,"recording")):        
+    #     recording_names.append(item.split(".mp4")[0])
         
-    # remove all recordings that are currently being written to
-    keepers = []
-    for item in recording_names:
-        for other_item in recording_names:
-            camera1 = item.split("_")[1]
-            camera2 = other_item.split("_")[1]
-            if camera1 == camera2:
-                num1 = int(item.split("_")[2].split(".mp4")[0])
-                num2 = int(other_item.split("_")[2].split(".mp4")[0])
-                if num1 < num2:
-                    keepers.append(item) # there exists a recording with greater number than item for that camera
+    # # remove all recordings that are currently being written to
+    # keepers = []
+    # for item in recording_names:
+    #     for other_item in recording_names:
+    #         camera1 = item.split("_")[1]
+    #         camera2 = other_item.split("_")[1]
+    #         if camera1 == camera2:
+    #             num1 = int(item.split("_")[2].split(".mp4")[0])
+    #             num2 = int(other_item.split("_")[2].split(".mp4")[0])
+    #             if num1 < num2:
+    #                 keepers.append(item) # there exists a recording with greater number than item for that camera
         
     return keepers
     
@@ -129,15 +136,18 @@ if __name__ == "__main__":
     try:
         parser = argparse.ArgumentParser()
         parser.add_argument("Ingest_session_directory", help= '<Required> string, Path to ingest session main directory',type = str)
+        parser.add_argument("Configuration_file", help= '<Required> string, Path to configuration file',type = str)
+
         args = parser.parse_args()
         ingest_session_path = args.Ingest_session_directory
-    except Exception as e:
-        print(e)
+        config_file = args.Configuration_file
+    except:
         
         print("Using default path instead")
         ingest_session_path = "/home/worklab/Data/cv/video/ingest_session_00011"
         ingest_session_path = "/home/worklab/Data/cv/video/5_min_18_cam_October_2020/ingest_session_00005"
-    
+        config_file = "/home/worklab/Documents/derek/I24-video-processing/config/tracker_setup.config"
+
     log_rate = 5
     last_log_time = 0
     
@@ -207,7 +217,6 @@ if __name__ == "__main__":
                         # change to use Will's utilities
                         
                         output_directory = os.path.join(ingest_session_path,"tracking_outputs")
-                        config_file = "/home/worklab/Documents/derek/I24-video-processing/config/tracker_setup.config"
                         camera_id = input_file.split("/")[-1].split("_")[1].upper()
                         
                         args = [input_file, output_directory, config_file,log_file]
