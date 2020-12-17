@@ -25,6 +25,9 @@ def get_recordings(ingest_session_path):
         params = get_recording_params(ingest_session_path)
         file_list = find_files(params[0],params[1],params[2],drop_last_file = True)
     
+    print("INGEST SESSION PATH: {}".format(ingest_session_path))
+    print(file_list)
+    
     keepers = [item[1] for item in file_list]
     # recording_names = []
     # last_recording_num = {}
