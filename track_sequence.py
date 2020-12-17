@@ -96,7 +96,7 @@ def track_sequence(input_file,
     device : torch.device (optional)
         Specifies which GPU should be used
     """
-    
+   
     # write to queue that worker has started
     if com_queue is not None:
         start = time.time()
@@ -121,54 +121,69 @@ def track_sequence(input_file,
         key = "INFO"
         message = "Worker {} (PID {}) using configuration {}".format(worker_id,os.getpid(),configuration["name"])
         com_queue.put((start,key,message,worker_id))
-    
-    # 2. initialize tracker with parsed parameters
-    
-    # enable CUDA
-    use_cuda = torch.cuda.is_available()
-    device = torch.device(worker_id if use_cuda else "cpu")    
-    
-    det_step = configuration["det_step"]
-    skip_step = configuration["skip_step"]
-    
-    # load kf_params
-    with open(configuration["kf_parameter_path"] ,"rb") as f:
-        kf_params = pickle.load(f)
-        # these adjustments make the filter a bit less laggy
-        kf_params["R"] /= 20
-        kf_params["R2"] /= 500 
-    
-    # load class_dict
-    with open(configuration["class_dict_path"] ,"rb") as f:
-        class_dict = pickle.load(f)
-    
-    # load detector
-    det_cp = configuration["detector_parameters"]
-    detector = resnet50(configuration["num_classes"],device_id = worker_id)
-    detector.load_state_dict(torch.load(det_cp))
-    detector = detector.to(device)
-    detector.eval()
-    detector.training = False  
-    detector.freeze_bn()
-    
-    # load localizer
-    if configuration["localize"]:
-        loc_cp = configuration["localizer_parameters"]
-        localizer = resnet34(configuration["num_classes"],device_id = worker_id)
-        localizer.load_state_dict(torch.load(loc_cp))
-        localizer = localizer.to(device)
-        localizer.eval()
-        localizer.training = False   
-    else:
-        localizer = None
-    
-    if com_queue is not None and localizer is not None:
-        d1 = localizer.regressionModel.conv1.weight.device
-        d2 = detector.regressionModel.conv1.weight.device
+    try:
+        # 2. initialize tracker with parsed parameters
+        # enable CUDA
+        use_cuda = torch.cuda.is_available()
+        device = torch.device(worker_id if use_cuda else "cpu")    
+        
+        det_step = configuration["det_step"]
+        skip_step = configuration["skip_step"]
+        
+        # load kf_params
+        with open(configuration["kf_parameter_path"] ,"rb") as f:
+            kf_params = pickle.load(f)
+            # these adjustments make the filter a bit less laggy
+            kf_params["R"] /= 20
+            kf_params["R2"] /= 500 
+        
+        # load class_dict
+        with open(configuration["class_dict_path"] ,"rb") as f:
+            class_dict = pickle.load(f)
+        
+        # load detector
+        det_cp = configuration["detector_parameters"]
+        detector = resnet50(configuration["num_classes"],device_id = worker_id)
+        detector.load_state_dict(torch.load(det_cp))
+        detector = detector.to(device)
+        detector.eval()
+        detector.training = False  
+        detector.freeze_bn()
+        
+        # load localizer
+        if configuration["localize"]:
+            loc_cp = configuration["localizer_parameters"]
+            localizer = resnet34(configuration["num_classes"],device_id = worker_id)
+            localizer.load_state_dict(torch.load(loc_cp))
+            localizer = localizer.to(device)
+            localizer.eval()
+            localizer.training = False   
+        else:
+            localizer = None
+        
+            
+        if com_queue is not None:
+            d1 = detector.regressionModel.conv1.weight.device
+            ts = time.time()
+            key = "DEBUG"
+            message = "Worker {} (PID {}): Detector on device {}".format(worker_id,os.getpid(),d1)
+            com_queue.put((ts,key,message,worker_id))
+        
+        if com_queue is not None and localizer is not None:
+            d2 = localizer.regressionModel.conv1.weight.device
+            ts = time.time()
+            key = "DEBUG"
+            message = "Worker {} (PID {}): Localizer on device {}.".format(worker_id,os.getpid(),d2)
+            com_queue.put((ts,key,message,worker_id))
+   
+    except Exception as e:
         ts = time.time()
-        key = "DEBUG"
-        message = "Worker {} (PID {}): Localizer on device {}. Detector on device {}".format(worker_id,os.getpid(),d1,d2)
-        com_queue.put((ts,key,message,worker_id))
+        key = "ERROR"
+        message = "Worker {} (PID {}) {} error: {}".format(worker_id,os.getpid(),type(e),e)
+        if com_queue is not None:
+            com_queue.put((ts,key,message,worker_id))
+    
+    
     
     # load other params
     init_frames= configuration["init_frames"]
@@ -226,8 +241,8 @@ def track_sequence(input_file,
     
 if __name__ == "__main__":
     input_file = "/home/worklab/Documents/derek/I24-video-processing//localization-based-tracking/demo/record_p2c0_00000.mp4"
-    config_file = "/home/worklab/Documents/derek/I24-video-processing/config/tracker_setup.config"
-    output_directory = "/home/worklab/Data/cv/video/ingest_session_00011/tracking_outputs"
+    config_file = "/home/worklab/Documents/derek/I24-video-processing/config/lambda_quadtracking_out.config"
+    output_directory = "/home/worklab/Data/cv/video/ingest_session_00011/track"
     log_file = None
     
     track_sequence(input_file,output_directory,config_file,log_file)

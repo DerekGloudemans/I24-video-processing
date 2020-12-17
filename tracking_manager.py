@@ -24,7 +24,7 @@ def get_recordings(ingest_session_path):
     # print("INGEST SESSION PATH: {}".format(ingest_session_path))
     # print(file_list)
     
-    keepers = [item[1] for item in file_list]
+    keepers = [item[1].split(".mp4")[0] for item in file_list]
     # recording_names = []
     # last_recording_num = {}
     # for item in os.listdir(os.path.join(ingest_session_path,"recording")):        
@@ -139,17 +139,22 @@ if __name__ == "__main__":
         parser = argparse.ArgumentParser()
         parser.add_argument("Ingest_session_directory", help= '<Required> string, Path to ingest session main directory',type = str)
         parser.add_argument("Configuration_file", help= '<Required> string, Path to configuration file',type = str)
+        parser.add_argument("--Verbose", help="bool, Show or suppress log messages in terminal")
 
         args = parser.parse_args()
         ingest_session_path = args.Ingest_session_directory
         config_file = args.Configuration_file
+        if args.verbose:
+            VERBOSE = args.verbose
+        else:
+            VERBOSE = False
     except:
         
         print("Using default path instead")
         ingest_session_path = "/home/worklab/Data/cv/video/ingest_session_00011"
         ingest_session_path = "/home/worklab/Data/cv/video/5_min_18_cam_October_2020/ingest_session_00005"
-        config_file = "/home/worklab/Documents/derek/I24-video-processing/config/tracker_setup.config"
-
+        config_file = "/home/worklab/Documents/derek/I24-video-processing/config/lambda_quad.config"
+        VERBOSE = True
     log_rate = 5
     last_log_time = 0
     
@@ -169,7 +174,7 @@ if __name__ == "__main__":
             break
         
         
-    write_to_log(log_file,(time.time(),"INFO","STARTED PROCESSING SESSION."))
+    write_to_log(log_file,(time.time(),"INFO","STARTED PROCESSING SESSION."),show = VERBOSE)
 
 
     # get GPU list
@@ -196,11 +201,8 @@ if __name__ == "__main__":
                     in_prog = get_in_progress(in_progress)
                     recordings = get_recordings(ingest_session_path)
                     done = get_outputs(ingest_session_path)
-                   
-                    # temp for finding error                    
-                    print("# in prog: {}  # done: {}  # available: {}".format(in_prog,done,recordings))
-                   
-                    if len(in_prog) == 0 and len(recordings) == len(done):
+                                      
+                    if len(in_prog) == 0 and len(recordings) <= len(done):
                         DONE = True
                         
                     
@@ -218,7 +220,8 @@ if __name__ == "__main__":
                         in_progress[idx] = avail_recording
                         available[idx] = 0
                         
-                        input_file = os.path.join(ingest_session_path,"record",avail_recording+".mp4")
+                        input_file_dir = get_recording_params(ingest_session_path)[0][0]
+                        input_file = os.path.join(input_file_dir,avail_recording+".mp4")
                         # change to use Will's utilities
                         
                         output_directory = os.path.join(ingest_session_path,"tracking_outputs")
@@ -235,7 +238,7 @@ if __name__ == "__main__":
                         ts = time.time()
                         key  = "DEBUG"
                         text = "Manager started worker {} (PID {}) on video sequence {}".format(idx,all_workers[idx].pid,in_progress[idx])
-                        write_to_log(log_file,(ts,key,text))
+                        write_to_log(log_file,(ts,key,text),show = VERBOSE)
                         
             
            
@@ -253,7 +256,7 @@ if __name__ == "__main__":
             # write message to log file
             worker_id = message[3]
             message = message[:3]
-            write_to_log(log_file,message)
+            write_to_log(log_file,message,show = VERBOSE)
             
             # if message is a finished task, update manager
             key = message[1]
@@ -268,7 +271,7 @@ if __name__ == "__main__":
                 ts = time.time()
                 key  = "DEBUG"
                 text = "Manager terminated worker {} (PID {}) on video sequence {}".format(worker_id,worker_pid,in_progress[worker_id])
-                write_to_log(log_file,(ts,key,text))
+                write_to_log(log_file,(ts,key,text),show = VERBOSE)
                 
             
                 # update progress tracking 
@@ -285,7 +288,7 @@ if __name__ == "__main__":
             ts = time.time()
             key = "WARNING"
             message = "Keyboard Interrupt error caught. Shutting down worker processes now."
-            write_to_log(log_file,(ts,key,message))
+            write_to_log(log_file,(ts,key,message),show = VERBOSE)
             
             # terminate all worker processes (they will in turn terminate their daemon loaders)
             for worker in all_workers:
@@ -296,7 +299,7 @@ if __name__ == "__main__":
             ts = time.time()
             key = "DEBUG"
             message = "All worker processes have been terminated."
-            write_to_log(log_file,(ts,key,message))
+            write_to_log(log_file,(ts,key,message),show = VERBOSE)
                         
             break # get out of processing main loop
 
@@ -311,6 +314,6 @@ if __name__ == "__main__":
     ts = time.time()
     key = "INFO"
     message = "ENDED PROCESSING SESSION."
-    write_to_log(log_file,(ts,key,message))
+    write_to_log(log_file,(ts,key,message),show = VERBOSE)
         
                 
