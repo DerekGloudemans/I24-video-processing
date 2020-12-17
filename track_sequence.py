@@ -244,8 +244,8 @@ def track_sequence(input_file,
     
 if __name__ == "__main__":
     input_file = "/home/worklab/Documents/derek/I24-video-processing//localization-based-tracking/demo/record_p2c0_00000.mp4"
-    config_file = "/home/worklab/Documents/derek/I24-video-processing/config/lambda_quadtracking_out.config"
-    output_directory = "/home/worklab/Data/cv/video/ingest_session_00011/track"
+    config_file = "/home/worklab/Documents/derek/I24-video-processing/config/lambda_quad.config"
+    output_directory = "/home/worklab/Data/cv/video/ingest_session_00011/tracking_outputs"
     log_file = None
     
     track_sequence(input_file,output_directory,config_file,log_file)
