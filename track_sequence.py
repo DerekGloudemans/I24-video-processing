@@ -127,6 +127,9 @@ def track_sequence(input_file,
         use_cuda = torch.cuda.is_available()
         device = torch.device(worker_id if use_cuda else "cpu")    
         
+        # to deal with pesky code that uses .cuda() instead of to(device)
+        torch.cuda.set_device(worker_id)
+        
         det_step = configuration["det_step"]
         skip_step = configuration["skip_step"]
         
