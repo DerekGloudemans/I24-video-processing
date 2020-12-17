@@ -198,6 +198,9 @@ if __name__ == "__main__":
                     recordings = get_recordings(ingest_session_path)
                     done = get_outputs(ingest_session_path)
                    
+                    # temp for finding error                    
+                    print("# in prog: {}  # done: {}  # available: {}".format(in_prog,done,recordings))
+                   
                     if len(in_prog) == 0 and len(recordings) == len(done):
                         DONE = True
                         
@@ -216,7 +219,7 @@ if __name__ == "__main__":
                         in_progress[idx] = avail_recording
                         available[idx] = 0
                         
-                        input_file = os.path.join(ingest_session_path,"recording",avail_recording+".mp4")
+                        input_file = os.path.join(ingest_session_path,"record",avail_recording+".mp4")
                         # change to use Will's utilities
                         
                         output_directory = os.path.join(ingest_session_path,"tracking_outputs")
