@@ -14,7 +14,7 @@ import argparse
 
 pynvml.nvmlInit()
 
-sys.path.append(0,"I24-video-ingest")
+sys.path.insert(0,"I24-video-ingest")
 from utilities import get_recording_params, find_files
 
 def get_recordings(ingest_session_path):
