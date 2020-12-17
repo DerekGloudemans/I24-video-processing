@@ -18,9 +18,12 @@ sys.path.append("I24-video-ingest")
 from utilities import get_recording_params, find_files
 
 def get_recordings(ingest_session_path):
-    
-    params = get_recording_params(ingest_session_path,verbose = False)
-    file_list = find_files(params[0],params[1],params[2],drop_last_file = True,verbose = False)
+    try:
+        params = get_recording_params(ingest_session_path,verbose = False)
+        file_list = find_files(params[0],params[1],params[2],drop_last_file = True,verbose = False)
+    except:
+        params = get_recording_params(ingest_session_path)
+        file_list = find_files(params[0],params[1],params[2],drop_last_file = True)
     
     keepers = [item[1] for item in file_list]
     # recording_names = []
