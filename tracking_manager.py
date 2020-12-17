@@ -139,13 +139,13 @@ if __name__ == "__main__":
         parser = argparse.ArgumentParser()
         parser.add_argument("Ingest_session_directory", help= '<Required> string, Path to ingest session main directory',type = str)
         parser.add_argument("Configuration_file", help= '<Required> string, Path to configuration file',type = str)
-        parser.add_argument("--Verbose", help="bool, Show or suppress log messages in terminal")
+        parser.add_argument("--verbose", help="bool, Show or suppress log messages in terminal", action = "store_true")
 
         args = parser.parse_args()
         ingest_session_path = args.Ingest_session_directory
         config_file = args.Configuration_file
         if args.verbose:
-            VERBOSE = args.verbose
+            VERBOSE = True
         else:
             VERBOSE = False
     except:
