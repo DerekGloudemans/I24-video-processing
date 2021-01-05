@@ -231,6 +231,14 @@ def track_sequence(input_file,
     
     #3. track and write output
     tracker.track()
+    
+    if com_queue is not None:
+       # write to queue that worker has finished
+        end = time.time()
+        key = "DEBUG"
+        message = "Worker {} (PID {}) finished tracking. Writing results now.".format(worker_id,os.getpid())
+        com_queue.put((end,key,message,worker_id))
+    
     tracker.write_results_csv()
      
     if com_queue is not None:
