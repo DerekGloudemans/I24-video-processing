@@ -292,11 +292,17 @@ if __name__ == "__main__":
                     all_workers[worker_id].join()
                     del all_workers[worker_id]
             
+                    # write log message
+                    ts = time.time()
+                    key  = "WARNING"
+                    text = "Manager terminated unresponsive worker {} (PID {}) on video sequence {}".format(worker_id,worker_pid,in_progress[worker_id])
+                    write_to_log(log_file,(ts,key,text),show = VERBOSE)
+                    
+                                
                     # update progress tracking 
                     available[worker_id] = 1
                     del in_progress[worker_id]
-            
-            
+                
             # make new log file if necessary
             if os.stat(log_file).st_size > 1e+07: # slice into 10 MB log files
                 log_subidx += 1
