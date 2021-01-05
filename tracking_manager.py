@@ -190,6 +190,8 @@ if __name__ == "__main__":
     com_queue = ctx.Queue()
     all_workers = {}
     DONE = False
+    
+    time_of_last_message = {}
         
     while not DONE:        
         
@@ -258,6 +260,8 @@ if __name__ == "__main__":
             message = message[:3]
             write_to_log(log_file,message,show = VERBOSE)
             
+            time_of_last_message[worker_id] = time.time()
+            
             # if message is a finished task, update manager
             key = message[1]
             if key == "WORKER_END":
@@ -279,6 +283,21 @@ if __name__ == "__main__":
                 del in_progress[worker_id]
             
             
+            # check for unresponsive processes (no output messages in last 60 seconds, and restart these)
+            for worker_id in time_of_last_message:
+                if time.time() - time_of_last_message[worker_id] > 60:
+                    # kill process
+                    worker_pid = all_workers[worker_id].pid
+                    all_workers[worker_id].terminate()
+                    all_workers[worker_id].join()
+                    del all_workers[worker_id]
+            
+                    # update progress tracking 
+                    available[worker_id] = 1
+                    del in_progress[worker_id]
+            
+            
+            # make new log file if necessary
             if os.stat(log_file).st_size > 1e+07: # slice into 10 MB log files
                 log_subidx += 1
                 log_file = os.path.join(ingest_session_path,"logs","cv_tracking_manager_{}_{}.log".format(str(log_idx).zfill(3),log_subidx))
