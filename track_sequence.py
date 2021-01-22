@@ -2,6 +2,7 @@ import torch
 import time
 import sys,os
 import _pickle as pickle
+import cv2
 # tracker
 
 # CNNs
@@ -18,6 +19,34 @@ localizer_path = os.path.join(os.getcwd(),"localization-based-tracking","models"
 sys.path.insert(0,localizer_path)
 from models.pytorch_retinanet_localizer.retinanet.model import resnet34
 
+def im_to_vid(directory,DELETE_FRAMES = False): 
+    out = None
+    all_files = os.listdir(directory)
+    all_files.sort()
+    
+    outfile = directory + ".mp4"
+    
+    for filename in all_files:
+        filename = os.path.join(directory, filename)
+        img = cv2.imread(filename)
+        try:
+            height, width, layers = img.shape
+        except:
+            continue
+        
+        if out is None:
+            out = cv2.VideoWriter(outfile,cv2.VideoWriter_fourcc(*'MPEG'), 30, (1920,1080))
+
+        out.write(img)
+            
+    if DELETE_FRAMES:
+        # remove frame directory
+        for filename in all_files:
+            filename = os.path.join(directory, filename)
+            os.remove(filename)
+        os.rmdir(directory)
+     
+    out.release()
 
 def parse_config_file(config_file):
     all_blocks = []
@@ -197,6 +226,19 @@ def track_sequence(input_file,
     det_conf_cutoff = configuration["det_conf_cutoff"]
     SHOW = configuration["show_tracking"]
     output_video_path = configuration["output_video_path"]
+    
+    if output_video_path is not None:
+         output_video_path = output_directory.split("tracking_outputs")[0] + "video_outputs/{}_output".format(input_file.split("/")[-1].split(".mp4")[0])
+         try:
+             os.mkdir(output_video_path)
+         except FileExistsError:
+             pass    
+         if com_queue is not None:
+             ts = time.time()
+             key = "DEBUG"
+             message = "Worker {} (PID {}) writing output frames to file: {}".format(worker_id,os.getpid(),output_video_path)
+             com_queue.put((ts,key,message,worker_id))
+    
     checksum_path = configuration["checksum_path"]
     geom_path = configuration["geom_path"]
     transform_path = configuration["transform_path"]
@@ -229,7 +271,7 @@ def track_sequence(input_file,
                                    com_queue = com_queue,
                                    com_rate = com_rate)
     
-    #3. track and write output
+    #3. track 
     tracker.track()
     
     if com_queue is not None:
@@ -240,7 +282,17 @@ def track_sequence(input_file,
         com_queue.put((end,key,message,worker_id))
     
     tracker.write_results_csv()
-     
+    
+    if com_queue is not None and output_video_path is not None:
+       # write to queue that worker has finished
+        end = time.time()
+        key = "DEBUG"
+        message = "Worker {} (PID {}) finished writing results. Condensing frames into video now.".format(worker_id,os.getpid())
+        com_queue.put((end,key,message,worker_id))
+    
+    if output_video_path is not None:
+        im_to_vid(output_video_path,DELETE_FRAMES = True)
+    
     if com_queue is not None:
        # write to queue that worker has finished
         end = time.time()
@@ -251,9 +303,10 @@ def track_sequence(input_file,
     
     
 if __name__ == "__main__":
-    input_file = "/home/worklab/Documents/derek/I24-video-processing//localization-based-tracking/demo/record_p2c0_00000.mp4"
+    input_file = "/home/worklab/Documents/derek/I24-video-processing/localization-based-tracking/demo/record_p2c0_00000.mp4"
+    input_file = "/home/worklab/Data/cv/video/stop_and_go/record_p2c3_00446.mp4"
     config_file = "/home/worklab/Documents/derek/I24-video-processing/config/lambda_quad.config"
-    output_directory = "/home/worklab/Data/cv/video/ingest_session_00011/tracking_outputs"
+    output_directory = "/home/worklab/Data/cv/video/stop_and_go/tracking_outputs"
     log_file = None
     
     track_sequence(input_file,output_directory,config_file,log_file)

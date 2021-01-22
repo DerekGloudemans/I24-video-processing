@@ -8,7 +8,7 @@ import psutil
 import pynvml
 import numpy as np
 
-from track_sequence import track_sequence
+from track_sequence import track_sequence,im_to_vid
 
 import argparse
 
@@ -83,7 +83,7 @@ def write_to_log(log_file,message,show = False):
     with open (log_file,"a+") as f:
         f.writelines([line])
         
-def log_system(log_file):
+def log_system(log_file,process_pids = None):
     """
     Logs system utilization metrics to log file
     """
@@ -127,6 +127,30 @@ def log_system(log_file):
     key = "INFO"
     message = "Memory util: {}%  ({}/{}GB)".format(round(used/total*100,2),used,total)
     write_to_log(log_file,(ts,key,message))
+    
+    pid_statuses = []
+    warning = False
+    if process_pids is not None:
+        for key in process_pids:
+            pid = process_pids[key]
+            
+            try:
+                os.kill(pid,0)
+                RUNNING = "running"
+            except OSError:
+                RUNNING = "stopped"
+                warning = True
+            
+            pid_statuses.append("| {} ({}): {} |".format(key,pid,RUNNING))
+    
+        ts = time.time()
+        key = "INFO"
+        if warning:
+            key = "WARNING"
+        write_to_log(log_file,(ts,key,pid_statuses))
+    
+            
+    
     
     last_log_time = time.time()    
     return last_log_time        
@@ -189,6 +213,7 @@ if __name__ == "__main__":
     ctx = mp.get_context('spawn')
     com_queue = ctx.Queue()
     all_workers = {}
+    process_pids = {"manager":manager._process.ident}
     DONE = False
     
     time_of_last_message = {}
@@ -246,14 +271,24 @@ if __name__ == "__main__":
            
             # periodically, write device status to log file
             if time.time() - last_log_time > log_rate:
-                last_log_time = log_system(log_file)
+                last_log_time = log_system(log_file,process_pids)
             
             
-            # monitor queue for messages that a worker completed its task
+            # monitor queue for messages 
             try:
                message = com_queue.get(timeout = 0)            
             except queue.Empty:
                 continue
+            
+            # strip PID from message and use to update process_pids
+            if "Loader" in message[2]:
+                pid = int(message[2].split("PID ")[1].split(")")[0])
+                id = int(message[2].split("Loader ")[1].split(" ")[0])
+                process_pids["loader {}".format(id)] = pid
+            elif "Worker " in message[2]: 
+                pid = int(message[2].split("PID ")[1].split(")")[0])
+                id = int(message[2].split("Worker ")[1].split(" ")[0])
+                process_pids["worker {}".format(id)] = pid
             
             # write message to log file
             worker_id = message[3]
@@ -307,6 +342,7 @@ if __name__ == "__main__":
             if os.stat(log_file).st_size > 1e+07: # slice into 10 MB log files
                 log_subidx += 1
                 log_file = os.path.join(ingest_session_path,"logs","cv_tracking_manager_{}_{}.log".format(str(log_idx).zfill(3),log_subidx))
+
 
         except KeyboardInterrupt:
             # interrupt log message
