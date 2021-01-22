@@ -221,57 +221,70 @@ if __name__ == "__main__":
     while not DONE:        
         
         try:
-            for idx in range(g):
-                # initially, start gpu_count processes
-                
-                if available[idx] == 1:
-                    in_prog = get_in_progress(in_progress)
-                    recordings = get_recordings(ingest_session_path)
-                    done = get_outputs(ingest_session_path)
-                                      
-                    if len(in_prog) == 0 and len(recordings) <= len(done):
-                        DONE = True
-                        
+            try:
+                for idx in range(g):
+                    # initially, start gpu_count processes
                     
-                    avail_recording = None
-                    for item in recordings:
-                        if item in in_prog or item in done:
-                            continue
-                        else:
-                            avail_recording = item
-                            break
-                    
-                    if avail_recording is not None:
-                        # assign this recording to this worker
+                    if available[idx] == 1:
+                        in_prog = get_in_progress(in_progress)
+                        recordings = get_recordings(ingest_session_path)
+                        done = get_outputs(ingest_session_path)
+                                          
+                        if len(in_prog) == 0 and len(recordings) <= len(done):
+                            DONE = True
+                            
                         
-                        in_progress[idx] = avail_recording
-                        available[idx] = 0
+                        avail_recording = None
+                        for item in recordings:
+                            if item in in_prog or item in done:
+                                continue
+                            else:
+                                avail_recording = item
+                                break
                         
-                        input_file_dir = get_recording_params(ingest_session_path)[0][0]
-                        input_file = os.path.join(input_file_dir,avail_recording+".mp4")
-                        # change to use Will's utilities
-                        
-                        output_directory = os.path.join(ingest_session_path,"tracking_outputs")
-                        camera_id = input_file.split("/")[-1].split("_")[1].upper()
-                        
-                        args = [input_file, output_directory, config_file,log_file]
-                        kwargs = {"worker_id":idx, "com_queue":com_queue,"com_rate": log_rate,"config":camera_id}
-                        
-                        worker = ctx.Process(target=track_sequence,args = args, kwargs=kwargs)
-                        all_workers[idx] = (worker)
-                        all_workers[idx].start()
-                        
-                        # write log message
-                        ts = time.time()
-                        key  = "DEBUG"
-                        text = "Manager started worker {} (PID {}) on video sequence {}".format(idx,all_workers[idx].pid,in_progress[idx])
-                        write_to_log(log_file,(ts,key,text),show = VERBOSE)
+                        if avail_recording is not None:
+                            # assign this recording to this worker
+                            
+                            in_progress[idx] = avail_recording
+                            available[idx] = 0
+                            
+                            input_file_dir = get_recording_params(ingest_session_path)[0][0]
+                            input_file = os.path.join(input_file_dir,avail_recording+".mp4")
+                            # change to use Will's utilities
+                            
+                            output_directory = os.path.join(ingest_session_path,"tracking_outputs")
+                            camera_id = input_file.split("/")[-1].split("_")[1].upper()
+                            
+                            args = [input_file, output_directory, config_file,log_file]
+                            kwargs = {"worker_id":idx, "com_queue":com_queue,"com_rate": log_rate,"config":camera_id}
+                            
+                            worker = ctx.Process(target=track_sequence,args = args, kwargs=kwargs)
+                            all_workers[idx] = (worker)
+                            all_workers[idx].start()
+                            
+                            # write log message
+                            ts = time.time()
+                            key  = "DEBUG"
+                            text = "Manager started worker {} (PID {}) on video sequence {}".format(idx,all_workers[idx].pid,in_progress[idx])
+                            write_to_log(log_file,(ts,key,text),show = VERBOSE)
+            except:
+                ts = time.time()
+                key  = "ERROR"
+                text = "Manager had error starting a new process running"
+                write_to_log(log_file,(ts,key,text),show = VERBOSE)
+                raise KeyboardInterrupt
                         
             
-           
-            # periodically, write device status to log file
-            if time.time() - last_log_time > log_rate:
-                last_log_time = log_system(log_file,process_pids)
+            try:
+                # periodically, write device status to log file
+                if time.time() - last_log_time > log_rate:
+                    last_log_time = log_system(log_file,process_pids)
+            except:
+                ts = time.time()
+                key  = "ERROR"
+                text = "Manager had error logging system info"
+                write_to_log(log_file,(ts,key,text),show = VERBOSE)
+                raise KeyboardInterrupt
             
             
             # monitor queue for messages 
@@ -282,69 +295,101 @@ if __name__ == "__main__":
             
             # strip PID from message and use to update process_pids
             try:
-                if "INFO: Loader" in message[2]:
+                if "Loader " in message[2]:
                     pid = int(message[2].split("PID ")[1].split(")")[0])
                     id = int(message[2].split("Loader ")[1].split(" ")[0])
                     process_pids["loader {}".format(id)] = pid
-                elif "DEBUG: Worker " in message[2]: 
+                elif "Worker " in message[2]: 
                     pid = int(message[2].split("PID ")[1].split(")")[0])
                     id = int(message[2].split("Worker ")[1].split(" ")[0])
                     process_pids["worker {}".format(id)] = pid
             except:
-                print("Error parsing PID and ID from message: {}".format(message[2]))
-            
-            # write message to log file
-            worker_id = message[3]
-            message = message[:3]
-            write_to_log(log_file,message,show = VERBOSE)
-            
-            time_of_last_message[worker_id] = time.time()
-            
-            # if message is a finished task, update manager
-            key = message[1]
-            if key == "WORKER_END":
-                worker_pid = all_workers[worker_id].pid
-                
-                all_workers[worker_id].terminate()
-                all_workers[worker_id].join()
-                del all_workers[worker_id]
-                
-                # write log message
                 ts = time.time()
-                key  = "DEBUG"
-                text = "Manager terminated worker {} (PID {}) on video sequence {}".format(worker_id,worker_pid,in_progress[worker_id])
+                key  = "ERROR"
+                text = "Manager error parsing PID and ID from message: {}".format(message[2])
                 write_to_log(log_file,(ts,key,text),show = VERBOSE)
+                raise KeyboardInterrupt
+            
+            try:
+                # write message to log file
+                worker_id = message[3]
+                message = message[:3]
+                write_to_log(log_file,message,show = VERBOSE)
+            
+            except:
+                ts = time.time()
+                key  = "ERROR"
+                text = "Manager error writing message to log file."
+                write_to_log(log_file,(ts,key,text),show = VERBOSE)
+                raise KeyboardInterrupt
+            
+            try:
+                time_of_last_message[worker_id] = time.time()
                 
-            
-                # update progress tracking 
-                available[worker_id] = 1
-                del in_progress[worker_id]
-            
-            
-            # check for unresponsive processes (no output messages in last 60 seconds, and restart these)
-            for worker_id in time_of_last_message:
-                if time.time() - time_of_last_message[worker_id] > 60:
-                    # kill process
+                # if message is a finished task, update manager
+                key = message[1]
+                if key == "WORKER_END":
                     worker_pid = all_workers[worker_id].pid
+                    
                     all_workers[worker_id].terminate()
                     all_workers[worker_id].join()
                     del all_workers[worker_id]
-            
+                    
                     # write log message
                     ts = time.time()
-                    key  = "WARNING"
-                    text = "Manager terminated unresponsive worker {} (PID {}) on video sequence {}".format(worker_id,worker_pid,in_progress[worker_id])
+                    key  = "DEBUG"
+                    text = "Manager terminated worker {} (PID {}) on video sequence {}".format(worker_id,worker_pid,in_progress[worker_id])
                     write_to_log(log_file,(ts,key,text),show = VERBOSE)
                     
-                                
+                
                     # update progress tracking 
                     available[worker_id] = 1
                     del in_progress[worker_id]
+            except:
+                ts = time.time()
+                key  = "ERROR"
+                text = "Manager error shutting down finished process"
+                write_to_log(log_file,(ts,key,text),show = VERBOSE)
+                raise KeyboardInterrupt
+            
+            try:
+                # check for unresponsive processes (no output messages in last 60 seconds, and restart these)
+                for worker_id in time_of_last_message:
+                    if time.time() - time_of_last_message[worker_id] > 60:
+                        # kill process
+                        worker_pid = all_workers[worker_id].pid
+                        all_workers[worker_id].terminate()
+                        all_workers[worker_id].join()
+                        del all_workers[worker_id]
                 
-            # make new log file if necessary
-            if os.stat(log_file).st_size > 1e+07: # slice into 10 MB log files
-                log_subidx += 1
-                log_file = os.path.join(ingest_session_path,"logs","cv_tracking_manager_{}_{}.log".format(str(log_idx).zfill(3),log_subidx))
+                        # write log message
+                        ts = time.time()
+                        key  = "WARNING"
+                        text = "Manager terminated unresponsive worker {} (PID {}) on video sequence {}".format(worker_id,worker_pid,in_progress[worker_id])
+                        write_to_log(log_file,(ts,key,text),show = VERBOSE)
+                        
+                                    
+                        # update progress tracking 
+                        available[worker_id] = 1
+                        del in_progress[worker_id]
+            except:
+                ts = time.time()
+                key  = "ERROR"
+                text = "Manager error terminating unresponsive process"
+                write_to_log(log_file,(ts,key,text),show = VERBOSE)
+                raise KeyboardInterrupt
+            
+            try:
+                # make new log file if necessary
+                if os.stat(log_file).st_size > 1e+07: # slice into 10 MB log files
+                    log_subidx += 1
+                    log_file = os.path.join(ingest_session_path,"logs","cv_tracking_manager_{}_{}.log".format(str(log_idx).zfill(3),log_subidx))
+            except:
+                ts = time.time()
+                key  = "ERROR"
+                text = "Manager error creating new log file"
+                write_to_log(log_file,(ts,key,text),show = VERBOSE)
+                raise KeyboardInterrupt
 
 
         except KeyboardInterrupt:
