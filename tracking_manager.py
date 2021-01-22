@@ -141,7 +141,7 @@ def log_system(log_file,process_pids = None):
                 RUNNING = "stopped"
                 warning = True
             
-            pid_statuses.append("| {} ({}): {} |".format(key,pid,RUNNING))
+            pid_statuses.append("{} ({}): {}".format(key,pid,RUNNING))
     
         ts = time.time()
         key = "INFO"
@@ -281,14 +281,17 @@ if __name__ == "__main__":
                 continue
             
             # strip PID from message and use to update process_pids
-            if "Loader" in message[2]:
-                pid = int(message[2].split("PID ")[1].split(")")[0])
-                id = int(message[2].split("Loader ")[1].split(" ")[0])
-                process_pids["loader {}".format(id)] = pid
-            elif "Worker " in message[2]: 
-                pid = int(message[2].split("PID ")[1].split(")")[0])
-                id = int(message[2].split("Worker ")[1].split(" ")[0])
-                process_pids["worker {}".format(id)] = pid
+            try:
+                if "INFO: Loader" in message[2]:
+                    pid = int(message[2].split("PID ")[1].split(")")[0])
+                    id = int(message[2].split("Loader ")[1].split(" ")[0])
+                    process_pids["loader {}".format(id)] = pid
+                elif "DEBUG: Worker " in message[2]: 
+                    pid = int(message[2].split("PID ")[1].split(")")[0])
+                    id = int(message[2].split("Worker ")[1].split(" ")[0])
+                    process_pids["worker {}".format(id)] = pid
+            except:
+                print("Error parsing PID and ID from message: {}".format(message[2]))
             
             # write message to log file
             worker_id = message[3]
