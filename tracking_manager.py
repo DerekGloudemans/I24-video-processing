@@ -316,7 +316,7 @@ if __name__ == "__main__":
                 message = message[:3]
                 write_to_log(log_file,message,show = VERBOSE)
             
-        except Exception as e:
+            except Exception as e:
                 ts = time.time()
                 key  = "ERROR"
                 text = "Manager error {} writing message to log file.".format(e)
