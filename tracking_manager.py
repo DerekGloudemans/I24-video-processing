@@ -267,10 +267,10 @@ if __name__ == "__main__":
                             key  = "DEBUG"
                             text = "Manager started worker {} (PID {}) on video sequence {}".format(idx,all_workers[idx].pid,in_progress[idx])
                             write_to_log(log_file,(ts,key,text),show = VERBOSE)
-            except:
+            except Exception as e:
                 ts = time.time()
                 key  = "ERROR"
-                text = "Manager had error starting a new process running"
+                text = "Manager had error {} starting a new process running".format(e)
                 write_to_log(log_file,(ts,key,text),show = VERBOSE)
                 raise KeyboardInterrupt
                         
@@ -279,10 +279,10 @@ if __name__ == "__main__":
                 # periodically, write device status to log file
                 if time.time() - last_log_time > log_rate:
                     last_log_time = log_system(log_file,process_pids)
-            except:
+            except Exception as e:
                 ts = time.time()
                 key  = "ERROR"
-                text = "Manager had error logging system info"
+                text = "Manager had error {} logging system info".format(e)
                 write_to_log(log_file,(ts,key,text),show = VERBOSE)
                 raise KeyboardInterrupt
             
@@ -303,10 +303,10 @@ if __name__ == "__main__":
                     pid = int(message[2].split("PID ")[1].split(")")[0])
                     id = int(message[2].split("Worker ")[1].split(" ")[0])
                     process_pids["worker {}".format(id)] = pid
-            except:
+            except Exception as e:
                 ts = time.time()
                 key  = "ERROR"
-                text = "Manager error parsing PID and ID from message: {}".format(message[2])
+                text = "Manager error {} parsing PID and ID from message: {}".format(e,message[2])
                 write_to_log(log_file,(ts,key,text),show = VERBOSE)
                 raise KeyboardInterrupt
             
@@ -316,10 +316,10 @@ if __name__ == "__main__":
                 message = message[:3]
                 write_to_log(log_file,message,show = VERBOSE)
             
-            except:
+        except Exception as e:
                 ts = time.time()
                 key  = "ERROR"
-                text = "Manager error writing message to log file."
+                text = "Manager error {} writing message to log file.".format(e)
                 write_to_log(log_file,(ts,key,text),show = VERBOSE)
                 raise KeyboardInterrupt
             
@@ -345,10 +345,14 @@ if __name__ == "__main__":
                     # update progress tracking 
                     available[worker_id] = 1
                     del in_progress[worker_id]
-            except:
+                    del time_of_last_message[worker_id]
+                    del process_pids["worker {}".format(worker_id)]
+                    del process_pids["loader {}".format(worker_id)]
+                    
+            except Exception as e:
                 ts = time.time()
                 key  = "ERROR"
-                text = "Manager error shutting down finished process"
+                text = "Manager error {} shutting down finished process".format(e)
                 write_to_log(log_file,(ts,key,text),show = VERBOSE)
                 raise KeyboardInterrupt
             
@@ -360,7 +364,7 @@ if __name__ == "__main__":
                         worker_pid = all_workers[worker_id].pid
                         all_workers[worker_id].terminate()
                         all_workers[worker_id].join()
-                        del all_workers[worker_id]
+                        
                 
                         # write log message
                         ts = time.time()
@@ -371,23 +375,27 @@ if __name__ == "__main__":
                                     
                         # update progress tracking 
                         available[worker_id] = 1
+                        del all_workers[worker_id]
                         del in_progress[worker_id]
-            except:
+                        del time_of_last_message[worker_id]
+                        del process_pids["worker {}".format(worker_id)]
+                        del process_pids["loader {}".format(worker_id)]
+            except Exception as e:
                 ts = time.time()
                 key  = "ERROR"
-                text = "Manager error terminating unresponsive process"
+                text = "Manager error {} terminating unresponsive process".format(e)
                 write_to_log(log_file,(ts,key,text),show = VERBOSE)
-                raise KeyboardInterrupt
+                #raise KeyboardInterrupt
             
             try:
                 # make new log file if necessary
                 if os.stat(log_file).st_size > 1e+07: # slice into 10 MB log files
                     log_subidx += 1
                     log_file = os.path.join(ingest_session_path,"logs","cv_tracking_manager_{}_{}.log".format(str(log_idx).zfill(3),log_subidx))
-            except:
+            except Exception as e:
                 ts = time.time()
                 key  = "ERROR"
-                text = "Manager error creating new log file"
+                text = "Manager error {} creating new log file".format(e)
                 write_to_log(log_file,(ts,key,text),show = VERBOSE)
                 raise KeyboardInterrupt
 
