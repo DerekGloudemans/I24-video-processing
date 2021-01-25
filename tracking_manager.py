@@ -180,6 +180,7 @@ if __name__ == "__main__":
         config_file = "/home/worklab/Documents/derek/I24-video-processing/config/lambda_quad.config"
         VERBOSE = True
     log_rate = 5
+    process_hang_max = 300
     last_log_time = 0
     
     
@@ -360,7 +361,7 @@ if __name__ == "__main__":
                 # randomly check one GPU for unresponsive processes (no output messages in last 60 seconds, and restart these)
                 worker_id = np.random.randint(0,g)
                 if worker_id in time_of_last_message.keys():
-                    if time.time() - time_of_last_message[worker_id] > 60:
+                    if time.time() - time_of_last_message[worker_id] > process_hang_max:
                         # kill process
                         worker_pid = all_workers[worker_id].pid
                         all_workers[worker_id].terminate()

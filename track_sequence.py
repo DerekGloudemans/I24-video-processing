@@ -281,14 +281,14 @@ def track_sequence(input_file,
             key = "DEBUG"
             message = "Worker {} (PID {}) finished tracking. Writing results now.".format(worker_id,os.getpid())
             com_queue.put((end,key,message,worker_id))
-        
+            write_start_time = end
         tracker.write_results_csv()
         
         if com_queue is not None and output_video_path is not None:
            # write to queue that worker has finished
             end = time.time()
             key = "DEBUG"
-            message = "Worker {} (PID {}) finished writing results. Condensing frames into video now.".format(worker_id,os.getpid())
+            message = "Worker {} (PID {}) finished writing results. Took {} seconds. Condensing frames into video now.".format(worker_id,os.getpid(),time.time()-write_start_time)
             com_queue.put((end,key,message,worker_id))
         
         if output_video_path is not None:
