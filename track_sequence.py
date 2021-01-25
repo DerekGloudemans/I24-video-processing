@@ -248,7 +248,9 @@ def track_sequence(input_file,
     except FileExistsError:
         pass
     
-    tracker = Localization_Tracker(input_file,
+    
+    try:
+        tracker = Localization_Tracker(input_file,
                                    detector,
                                    localizer,
                                    kf_params,
@@ -270,35 +272,43 @@ def track_sequence(input_file,
                                    transform_path = transform_path,
                                    com_queue = com_queue,
                                    com_rate = com_rate)
+        #3. track 
+        tracker.track()
+        
+        if com_queue is not None:
+           # write to queue that worker has finished
+            end = time.time()
+            key = "DEBUG"
+            message = "Worker {} (PID {}) finished tracking. Writing results now.".format(worker_id,os.getpid())
+            com_queue.put((end,key,message,worker_id))
+        
+        tracker.write_results_csv()
+        
+        if com_queue is not None and output_video_path is not None:
+           # write to queue that worker has finished
+            end = time.time()
+            key = "DEBUG"
+            message = "Worker {} (PID {}) finished writing results. Condensing frames into video now.".format(worker_id,os.getpid())
+            com_queue.put((end,key,message,worker_id))
+        
+        if output_video_path is not None:
+            im_to_vid(output_video_path,DELETE_FRAMES = True)
+        
+        if com_queue is not None:
+           # write to queue that worker has finished
+            end = time.time()
+            key = "WORKER_END"
+            message = "Worker {} (PID {}) is done executing".format(worker_id,os.getpid())
+            com_queue.put((end,key,message,worker_id))
     
-    #3. track 
-    tracker.track()
+    except Exception as e:
+        if com_queue is not None:
+            end = time.time()
+            key = "ERROR"
+            message = "Worker {} (PID {}) error {} during tracking.".format(worker_id,os.getpid(),e)
+            com_queue.put((end,key,message,worker_id))
+        
     
-    if com_queue is not None:
-       # write to queue that worker has finished
-        end = time.time()
-        key = "DEBUG"
-        message = "Worker {} (PID {}) finished tracking. Writing results now.".format(worker_id,os.getpid())
-        com_queue.put((end,key,message,worker_id))
-    
-    tracker.write_results_csv()
-    
-    if com_queue is not None and output_video_path is not None:
-       # write to queue that worker has finished
-        end = time.time()
-        key = "DEBUG"
-        message = "Worker {} (PID {}) finished writing results. Condensing frames into video now.".format(worker_id,os.getpid())
-        com_queue.put((end,key,message,worker_id))
-    
-    if output_video_path is not None:
-        im_to_vid(output_video_path,DELETE_FRAMES = True)
-    
-    if com_queue is not None:
-       # write to queue that worker has finished
-        end = time.time()
-        key = "WORKER_END"
-        message = "Worker {} (PID {}) is done executing".format(worker_id,os.getpid())
-        com_queue.put((end,key,message,worker_id))
 
     
     
