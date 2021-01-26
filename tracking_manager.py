@@ -320,7 +320,7 @@ if __name__ == "__main__":
             except Exception as e:
                 ts = time.time()
                 key  = "ERROR"
-                text = "Manager error {} writing message to log file.".format(e)
+                text = "Manager error '{}' writing message '{}' to log file.".format(e,message)
                 write_to_log(log_file,(ts,key,text),show = VERBOSE)
                 raise KeyboardInterrupt
             

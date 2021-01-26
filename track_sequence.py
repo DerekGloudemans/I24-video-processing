@@ -236,7 +236,7 @@ def track_sequence(input_file,
          if com_queue is not None:
              ts = time.time()
              key = "DEBUG"
-             message = "Worker {} (PID {}) writing output frames to file: {}".format(worker_id,os.getpid(),output_video_path)
+             message = "Worker {} (PID {}) will write output frames to file: {}".format(worker_id,os.getpid(),output_video_path)
              com_queue.put((ts,key,message,worker_id))
     
     checksum_path = configuration["checksum_path"]
@@ -273,6 +273,12 @@ def track_sequence(input_file,
                                    com_queue = com_queue,
                                    com_rate = com_rate)
         #3. track 
+        if com_queue is not None:
+           # write to queue that worker has finished
+            end = time.time()
+            key = "DEBUG"
+            message = "Worker {} (PID {}) starting tracking.".format(worker_id,os.getpid())
+            com_queue.put((end,key,message,worker_id))
         tracker.track()
         
         if com_queue is not None:
