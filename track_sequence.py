@@ -279,6 +279,9 @@ def track_sequence(input_file,
             key = "DEBUG"
             message = "Worker {} (PID {}) starting tracking.".format(worker_id,os.getpid())
             com_queue.put((end,key,message,worker_id))
+            
+        if worker_id == 0:
+            time.sleep(1000)
         tracker.track()
         
         if com_queue is not None:
@@ -296,6 +299,13 @@ def track_sequence(input_file,
             key = "DEBUG"
             message = "Worker {} (PID {}) finished writing results. Took {} seconds. Condensing frames into video now.".format(worker_id,os.getpid(),time.time()-write_start_time)
             com_queue.put((end,key,message,worker_id))
+        elif com_queue is not None:
+            # write to queue that worker has finished
+            end = time.time()
+            key = "DEBUG"
+            message = "Worker {} (PID {}) finished writing results. Took {} seconds.".format(worker_id,os.getpid(),time.time()-write_start_time)
+            com_queue.put((end,key,message,worker_id))
+        
         
         if output_video_path is not None:
             im_to_vid(output_video_path,DELETE_FRAMES = True)

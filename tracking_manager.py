@@ -180,7 +180,7 @@ if __name__ == "__main__":
         config_file = "/home/worklab/Documents/derek/I24-video-processing/config/lambda_quad.config"
         VERBOSE = True
     log_rate = 5
-    process_hang_max = 300
+    process_hang_max = 30
     last_log_time = 0
     
     
@@ -363,10 +363,19 @@ if __name__ == "__main__":
                 if worker_id in time_of_last_message.keys():
                     if time.time() - time_of_last_message[worker_id] > process_hang_max:
                         # kill process
-                        worker_pid = all_workers[worker_id].pid
-                        all_workers[worker_id].terminate()
-                        all_workers[worker_id].join()
                         
+                        # write log message
+                        ts = time.time()
+                        key  = "WARNING"
+                        text = "Manager detected unresponsive worker {}".format(worker_id)
+                        write_to_log(log_file,(ts,key,text),show = VERBOSE)
+                        
+                        worker_pid = all_workers[worker_id].pid
+                        print("Trying to terminate")
+                        all_workers[worker_id].terminate()
+                        print("Terminated")
+                        all_workers[worker_id].join()
+                        print("Joined")
                 
                         # write log message
                         ts = time.time()
