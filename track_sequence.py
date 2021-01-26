@@ -280,8 +280,6 @@ def track_sequence(input_file,
             message = "Worker {} (PID {}) starting tracking.".format(worker_id,os.getpid())
             com_queue.put((end,key,message,worker_id))
             
-        if worker_id == 0:
-            time.sleep(1000)
         tracker.track()
         
         if com_queue is not None:
