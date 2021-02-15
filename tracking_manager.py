@@ -99,6 +99,7 @@ def log_system(log_file,process_pids = None):
     
     # log GPU util and memory
     try:
+        max_gpu_util = 0
         deviceCount = pynvml.nvmlDeviceGetCount()
         for idx in range(deviceCount):
             handle = pynvml.nvmlDeviceGetHandleByIndex(idx)
@@ -115,6 +116,9 @@ def log_system(log_file,process_pids = None):
             ts = time.time()
             key = "INFO"
             write_to_log(log_file,(ts,key,message))
+            
+            if gpu_util > max_gpu_util:
+                max_gpu_util = gpu_util
             
     except pynvml.NVMLError as error:
         print(error)
@@ -141,7 +145,7 @@ def log_system(log_file,process_pids = None):
                 RUNNING = "stopped"
                 warning = True
             
-            pid_statuses.append("{} ({}): {}".format(key,pid,RUNNING))
+            pid_statuses.append("{} ({}): {}\n".format(key,pid,RUNNING))
     
         ts = time.time()
         key = "INFO"
@@ -153,7 +157,7 @@ def log_system(log_file,process_pids = None):
     
     
     last_log_time = time.time()    
-    return last_log_time        
+    return last_log_time, max_gpu_util 
     
 
 if __name__ == "__main__":
@@ -218,7 +222,8 @@ if __name__ == "__main__":
     DONE = False
     
     time_of_last_message = {}
-        
+    time_of_last_gpu_util = time.time()
+    
     while not DONE:        
         
         try:
@@ -279,7 +284,10 @@ if __name__ == "__main__":
             try:
                 # periodically, write device status to log file
                 if time.time() - last_log_time > log_rate:
-                    last_log_time = log_system(log_file,process_pids)
+                    last_log_time,max_gpu_util = log_system(log_file,process_pids)
+                    if max_gpu_util > 10:
+                        time_of_last_gpu_util = time.time()
+                        
             except Exception as e:
                 ts = time.time()
                 key  = "ERROR"
@@ -410,6 +418,22 @@ if __name__ == "__main__":
                 write_to_log(log_file,(ts,key,text),show = VERBOSE)
                 raise KeyboardInterrupt
 
+            # determine whether GPUs are still running, and restart if necessary
+            if time.time() - time_of_last_gpu_util > 120:
+                ts = time.time()
+                key  = "WARNING"
+                text = "All GPUs have stopped processing. Terminating all worker processes to restart."
+                write_to_log(log_file,(ts,key,text),show = VERBOSE)
+                
+                for worker in all_workers:
+                    all_workers[worker].terminate()
+                    all_workers[worker].join()
+                
+                ts = time.time()
+                key  = "DEBUG"
+                text = "All workers have been terminated. Sleeping for 60 seconds before restarting."
+                write_to_log(log_file,(ts,key,text),show = VERBOSE)
+                time.sleep(60)
 
         except KeyboardInterrupt:
             # interrupt log message
